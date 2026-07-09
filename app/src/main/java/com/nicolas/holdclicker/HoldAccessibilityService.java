@@ -5,34 +5,45 @@ import android.accessibilityservice.GestureDescription;
 import android.graphics.Path;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
 public final class HoldAccessibilityService extends AccessibilityService {
-    private static HoldAccessibilityService instance;
+    private static final String TAG = "HoldAccessibility";
+    private static volatile HoldAccessibilityService instance;
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean running;
+    private float lastX;
+    private float lastY;
+
+    public enum HoldStartResult {
+        STARTED,
+        SERVICE_UNAVAILABLE,
+        ALREADY_RUNNING,
+        FAILED
+    }
 
     public static boolean isReady() {
         return instance != null;
     }
 
-    public static void startHold(float x, float y, long durationMs) {
+    public static HoldStartResult startHold(float x, float y, long durationMs) {
         HoldAccessibilityService service = instance;
-        if (service != null) {
-            service.dispatchHold(x, y, durationMs);
+        if (service == null) {
+            return HoldStartResult.SERVICE_UNAVAILABLE;
         }
+        return service.dispatchHold(x, y, durationMs);
     }
 
-    public static void stopCurrentGesture() {
+    public static boolean stopCurrentGesture() {
         HoldAccessibilityService service = instance;
-        if (service != null) {
-            service.running = false;
-            service.mainHandler.removeCallbacksAndMessages(null);
-        }
+        return service != null && service.cancelCurrentGesture();
     }
 
     @Override
     protected void onServiceConnected() {
+        super.onServiceConnected();
         instance = this;
     }
 
@@ -47,42 +58,80 @@ public final class HoldAccessibilityService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // Pas besoin de lire le contenu écran : ce service sert uniquement à envoyer un geste.
+        // Le service n'observe pas l'ecran, il sert uniquement a envoyer un geste.
     }
 
     @Override
     public void onInterrupt() {
-        stopCurrentGesture();
+        cancelCurrentGesture();
     }
 
-    private void dispatchHold(float x, float y, long durationMs) {
+    private HoldStartResult dispatchHold(float x, float y, long durationMs) {
         if (running) {
-            return;
+            return HoldStartResult.ALREADY_RUNNING;
+        }
+        if (Float.isNaN(x) || Float.isNaN(y) || Float.isInfinite(x) || Float.isInfinite(y)) {
+            return HoldStartResult.FAILED;
         }
 
         running = true;
-        Path path = new Path();
-        path.moveTo(x, y);
+        lastX = x;
+        lastY = y;
 
-        GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(path, 0, durationMs);
-        GestureDescription gesture = new GestureDescription.Builder().addStroke(stroke).build();
+        try {
+            Path path = new Path();
+            path.moveTo(x, y);
 
-        boolean dispatched = dispatchGesture(gesture, new GestureResultCallback() {
-            @Override
-            public void onCompleted(GestureDescription gestureDescription) {
+            long safeDurationMs = HoldConfig.clampDurationMs(durationMs);
+            GestureDescription.StrokeDescription stroke =
+                    new GestureDescription.StrokeDescription(path, 0, safeDurationMs);
+            GestureDescription gesture = new GestureDescription.Builder().addStroke(stroke).build();
+
+            boolean dispatched = dispatchGesture(gesture, new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription gestureDescription) {
+                    running = false;
+                    super.onCompleted(gestureDescription);
+                }
+
+                @Override
+                public void onCancelled(GestureDescription gestureDescription) {
+                    running = false;
+                    super.onCancelled(gestureDescription);
+                }
+            }, mainHandler);
+
+            if (!dispatched) {
                 running = false;
-                super.onCompleted(gestureDescription);
+                return HoldStartResult.FAILED;
             }
-
-            @Override
-            public void onCancelled(GestureDescription gestureDescription) {
-                running = false;
-                super.onCancelled(gestureDescription);
-            }
-        }, mainHandler);
-
-        if (!dispatched) {
+            return HoldStartResult.STARTED;
+        } catch (RuntimeException exception) {
             running = false;
+            Log.e(TAG, "Unable to dispatch hold gesture", exception);
+            return HoldStartResult.FAILED;
+        }
+    }
+
+    private boolean cancelCurrentGesture() {
+        boolean wasRunning = running;
+        running = false;
+        if (wasRunning) {
+            dispatchCancellationGesture();
+        }
+        return wasRunning;
+    }
+
+    private void dispatchCancellationGesture() {
+        try {
+            Path path = new Path();
+            path.moveTo(lastX, lastY);
+            GestureDescription.StrokeDescription stroke =
+                    new GestureDescription.StrokeDescription(path, 0, 1);
+            GestureDescription gesture = new GestureDescription.Builder().addStroke(stroke).build();
+            dispatchGesture(gesture, null, null);
+        } catch (RuntimeException exception) {
+            Log.w(TAG, "Unable to dispatch cancellation gesture", exception);
         }
     }
 }

@@ -2,4 +2,29 @@
     <string name="app_name">Hold Clicker</string>
     <string name="accessibility_service_label">Hold Clicker Service</string>
     <string name="accessibility_service_description">Permet d’exécuter un appui maintenu à l’endroit choisi.</string>
+
+    <string name="main_help">Réglage unique : durée du press &amp; hold en millisecondes, de 50 à 60000 ms. Déplace la cible orange, puis utilise START/STOP depuis les boutons flottants.</string>
+    <string name="duration_hint">Durée du hold en ms</string>
+    <string name="btn_save">Enregistrer la durée</string>
+    <string name="btn_overlay_permission">Autoriser l’affichage flottant</string>
+    <string name="btn_accessibility_settings">Ouvrir les réglages d’accessibilité</string>
+    <string name="btn_start_floating">Afficher les boutons flottants</string>
+    <string name="btn_stop_floating">Fermer les boutons flottants</string>
+
+    <string name="toast_enter_duration">Entre une durée en ms</string>
+    <string name="toast_duration_saved">Durée enregistrée : %1$d ms</string>
+    <string name="toast_duration_clamped">Durée limitée à %1$d ms</string>
+    <string name="toast_invalid_duration">Entre une durée entre %1$d et %2$d ms</string>
+    <string name="toast_need_overlay_permission">Autorise d’abord l’affichage flottant</string>
+    <string name="toast_floating_shown">Boutons flottants affichés</string>
+    <string name="toast_overlay_failed">Impossible d’afficher les boutons flottants</string>
+
+    <string name="btn_start">START</string>
+    <string name="btn_stop">STOP</string>
+    <string name="toast_hold_stopped">Hold stoppé</string>
+    <string name="toast_no_hold_running">Aucun hold en cours</string>
+    <string name="toast_need_accessibility">Active le service d’accessibilité Hold Clicker</string>
+    <string name="toast_hold_started">Hold lancé : %1$d ms</string>
+    <string name="toast_hold_already_running">Un hold est déjà en cours</string>
+    <string name="toast_hold_failed">Impossible de lancer le hold</string>
 </resources>

@@ -1,24 +1,28 @@
 package com.nicolas.holdclicker;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Gravity;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+public final class MainActivity extends Activity {
+    private static final String TAG = "HoldClicker";
 
-public final class MainActivity extends android.app.Activity {
     private EditText durationInput;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
     }
@@ -26,96 +30,149 @@ public final class MainActivity extends android.app.Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        refreshStatus();
+        if (durationInput != null) {
+            durationInput.setText(String.valueOf(HoldConfig.getHoldDurationMs(this)));
+        }
     }
 
     private void buildUi() {
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        scrollView.setFillViewport(true);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setPadding(dp(24), dp(36), dp(24), dp(24));
 
+        LinearLayout.LayoutParams matchWrap = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+
         TextView title = new TextView(this);
-        title.setText("Hold Clicker");
+        title.setText(R.string.app_name);
         title.setTextSize(28f);
         title.setGravity(Gravity.CENTER);
-        root.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        root.addView(title, matchWrap);
 
         TextView help = new TextView(this);
-        help.setText("Réglage unique : durée du press & hold en millisecondes. Déplace la cible orange, puis utilise START/STOP depuis les boutons flottants.");
+        help.setText(R.string.main_help);
         help.setTextSize(16f);
         help.setPadding(0, dp(18), 0, dp(18));
-        root.addView(help, new LinearLayout.LayoutParams(-1, -2));
+        root.addView(help, matchWrap);
 
         durationInput = new EditText(this);
-        durationInput.setHint("Durée du hold en ms");
+        durationInput.setHint(R.string.duration_hint);
         durationInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         durationInput.setText(String.valueOf(HoldConfig.getHoldDurationMs(this)));
-        root.addView(durationInput, new LinearLayout.LayoutParams(-1, dp(58)));
+        root.addView(durationInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(58)));
 
-        Button save = new Button(this);
-        save.setText("Enregistrer la durée");
-        save.setOnClickListener(v -> saveDuration());
-        root.addView(save, new LinearLayout.LayoutParams(-1, dp(56)));
+        addButton(root, R.string.btn_save, v -> saveDuration(true));
+        addButton(root, R.string.btn_overlay_permission, v -> openOverlaySettings());
+        addButton(root, R.string.btn_accessibility_settings, v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            } catch (RuntimeException exception) {
+                Log.e(TAG, "Unable to open accessibility settings", exception);
+                Toast.makeText(this, "Impossible d'ouvrir les réglages d'accessibilité", Toast.LENGTH_SHORT).show();
+            }
+        });
+        addButton(root, R.string.btn_start_floating, v -> startFloatingService());
+        addButton(root, R.string.btn_stop_floating, v -> stopService(new Intent(this, FloatingControlsService.class)));
 
-        Button overlayPermission = new Button(this);
-        overlayPermission.setText("Autoriser l’affichage flottant");
-        overlayPermission.setOnClickListener(v -> openOverlaySettings());
-        root.addView(overlayPermission, new LinearLayout.LayoutParams(-1, dp(56)));
-
-        Button accessibility = new Button(this);
-        accessibility.setText("Ouvrir les réglages d’accessibilité");
-        accessibility.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
-        root.addView(accessibility, new LinearLayout.LayoutParams(-1, dp(56)));
-
-        Button startFloating = new Button(this);
-        startFloating.setText("Afficher les boutons flottants");
-        startFloating.setOnClickListener(v -> startFloatingService());
-        root.addView(startFloating, new LinearLayout.LayoutParams(-1, dp(56)));
-
-        Button stopFloating = new Button(this);
-        stopFloating.setText("Fermer les boutons flottants");
-        stopFloating.setOnClickListener(v -> stopService(new Intent(this, FloatingControlsService.class)));
-        root.addView(stopFloating, new LinearLayout.LayoutParams(-1, dp(56)));
-
-        setContentView(root);
+        scrollView.addView(root);
+        setContentView(scrollView);
     }
 
-    private void saveDuration() {
+    private void addButton(LinearLayout parent, int textResId, android.view.View.OnClickListener listener) {
+        Button button = new Button(this);
+        button.setText(textResId);
+        button.setAllCaps(false);
+        button.setOnClickListener(listener);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(60));
+        lp.topMargin = dp(12);
+        parent.addView(button, lp);
+    }
+
+    private boolean saveDuration(boolean showToast) {
+        if (durationInput == null) {
+            return false;
+        }
+
         String raw = durationInput.getText().toString().trim();
         if (raw.isEmpty()) {
-            Toast.makeText(this, "Entre une durée en ms", Toast.LENGTH_SHORT).show();
-            return;
+            if (showToast) {
+                Toast.makeText(this, R.string.toast_enter_duration, Toast.LENGTH_SHORT).show();
+            }
+            return false;
         }
 
         try {
             long value = Long.parseLong(raw);
-            HoldConfig.setHoldDurationMs(this, value);
-            Toast.makeText(this, "Durée enregistrée", Toast.LENGTH_SHORT).show();
+            long safeValue = HoldConfig.setHoldDurationMs(this, value);
+            durationInput.setText(String.valueOf(safeValue));
+            if (showToast) {
+                int messageId = safeValue == value
+                        ? R.string.toast_duration_saved
+                        : R.string.toast_duration_clamped;
+                Toast.makeText(this, getString(messageId, safeValue), Toast.LENGTH_SHORT).show();
+            }
+            return true;
         } catch (NumberFormatException exception) {
-            Toast.makeText(this, "Durée invalide", Toast.LENGTH_SHORT).show();
+            if (showToast) {
+                Toast.makeText(this,
+                        getString(R.string.toast_invalid_duration,
+                                HoldConfig.getMinDurationMs(),
+                                HoldConfig.getMaxDurationMs()),
+                        Toast.LENGTH_SHORT).show();
+            }
+            return false;
         }
     }
 
     private void startFloatingService() {
-        saveDuration();
+        if (!saveDuration(false)) {
+            Toast.makeText(this,
+                    getString(R.string.toast_invalid_duration,
+                            HoldConfig.getMinDurationMs(),
+                            HoldConfig.getMaxDurationMs()),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Autorise d’abord l’affichage flottant", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.toast_need_overlay_permission, Toast.LENGTH_LONG).show();
             openOverlaySettings();
             return;
         }
-        startService(new Intent(this, FloatingControlsService.class));
-        Toast.makeText(this, "Boutons flottants affichés", Toast.LENGTH_SHORT).show();
+
+        try {
+            startService(new Intent(this, FloatingControlsService.class));
+            Toast.makeText(this, R.string.toast_floating_shown, Toast.LENGTH_SHORT).show();
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Unable to start floating service", exception);
+            Toast.makeText(this, R.string.toast_overlay_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void openOverlaySettings() {
-        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
-        intent.setData(Uri.parse("package:" + getPackageName()));
-        startActivity(intent);
-    }
-
-    private void refreshStatus() {
-        // Conservé volontairement minimal : pas d’état complexe, une seule option.
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Unable to open package overlay settings", exception);
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+            } catch (RuntimeException fallbackException) {
+                Log.e(TAG, "Unable to open overlay settings", fallbackException);
+                Toast.makeText(this, "Réglage introuvable", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private int dp(int value) {

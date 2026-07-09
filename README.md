@@ -1,12 +1,13 @@
 # Hold Clicker Android
 
-Mini auto-clicker Android qui fait uniquement un **press & hold**.
+Mini outil Android pour lancer un seul type d'action : un **press & hold** a l'endroit choisi.
 
 ## Fonctions
 
-- 1 seul réglage : durée du hold en millisecondes.
-- Cible flottante orange déplaçable.
-- Boutons flottants START / STOP.
+- Une seule option : duree du hold en millisecondes.
+- Duree bornee entre `50` et `60000` ms, limite imposee par `GestureDescription`.
+- Cible flottante deplacable.
+- Boutons flottants START / STOP utilisables au-dessus des autres apps.
 - Pas de root.
 - Utilise `AccessibilityService.dispatchGesture()`.
 
@@ -15,17 +16,18 @@ Mini auto-clicker Android qui fait uniquement un **press & hold**.
 1. Ouvrir le dossier dans Android Studio.
 2. Laisser Gradle synchroniser le projet.
 3. Build APK : `Build > Build App Bundle(s) / APK(s) > Build APK(s)`.
-4. Installer l’APK sur Android.
+4. Installer l'APK sur Android.
 
-## À activer sur le téléphone
+## A activer sur le telephone
 
 1. Autorisation **Afficher par-dessus les autres applications**.
-2. Accessibilité > Applications installées > **Hold Clicker Service** > Activer.
+2. Accessibilite > Applications installees > **Hold Clicker Service** > Activer.
 
 ## Utilisation
 
-1. Entrer la durée du maintien, par exemple `3000` pour 3 secondes.
+1. Entrer la duree du maintien, par exemple `3000` pour 3 secondes.
 2. Appuyer sur **Afficher les boutons flottants**.
-3. Déplacer la cible orange sur la zone à maintenir.
+3. Deplacer la cible orange sur la zone a maintenir.
 4. Appuyer sur **START**.
-5. Appuyer sur **STOP** pour annuler/stopper le geste en cours.
+5. Pendant le hold, la cible reste visible mais laisse passer le toucher vers l'app dessous.
+6. Appuyer sur **STOP** pour annuler le geste en cours.
