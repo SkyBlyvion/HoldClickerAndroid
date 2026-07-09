@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Hold Clicker</string>
+    <string name="accessibility_service_label">Hold Clicker Service</string>
+    <string name="accessibility_service_description">Permet d’exécuter un appui maintenu à l’endroit choisi.</string>
+</resources>
